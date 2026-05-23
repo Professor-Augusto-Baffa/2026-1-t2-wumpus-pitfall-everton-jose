@@ -252,5 +252,20 @@ show_mem(_,0) :- energia(E), pontuacao(P), write('E: '), write(E), write('   P: 
 %executa_acao(voltar) :- peguei_todos_ouros,!.
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Motor de Decisão do Agente
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% Prioridade 1: Reflexos Condicionados (Pegar Ouro ou Energia)
+executa_acao(pegar) :- 
+    posicao(X, Y, _),          % Descobre onde o agente está
+    memory(X, Y, Obs),         % Puxa o que ele está sentindo nessa posição
+    member(brilho, Obs),       % Verifica se "brilho" está na lista de observações
+    !.                         % O "Cut" (!) impede que o Prolog procure outras regras
+
+executa_acao(pegar) :- 
+    posicao(X, Y, _), 
+    memory(X, Y, Obs), 
+    member(reflexo, Obs), 
+    !.
 
