@@ -269,3 +269,57 @@ executa_acao(pegar) :-
     member(reflexo, Obs), 
     !.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Regras Auxiliares de Movimento e Direção
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Define para qual direção cardeal fica o vizinho em relação a posição X, Y atual
+vizinho_direcao(X, Y, NX, Y, leste) :- NX is X + 1.
+vizinho_direcao(X, Y, NX, Y, oeste) :- NX is X - 1.
+vizinho_direcao(X, Y, X, NY, norte) :- NY is Y + 1.
+vizinho_direcao(X, Y, X, NY, sul) :- NY is Y - 1.
+
+% Tabela de decisões de giro: Como virar da DirAtual para a DirDesejada da forma mais rápida
+melhor_virada(norte, leste, virar_direita).
+melhor_virada(norte, oeste, virar_esquerda).
+melhor_virada(norte, sul, virar_direita). % Meia-volta (precisará de 2 turnos, começa virando para a direita)
+
+melhor_virada(sul, leste, virar_esquerda).
+melhor_virada(sul, oeste, virar_direita).
+melhor_virada(sul, norte, virar_direita).
+
+melhor_virada(leste, sul, virar_direita).
+melhor_virada(leste, norte, virar_esquerda).
+melhor_virada(leste, oeste, virar_direita).
+
+melhor_virada(oeste, sul, virar_esquerda).
+melhor_virada(oeste, norte, virar_direita).
+melhor_virada(oeste, leste, virar_direita).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Prioridade 2: Exploração de Vizinhança Segura
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+executa_acao(Acao) :-
+    posicao(X, Y, DirAtual),           % Pega a posição e direção atual do agente
+    adjacente(NX, NY),                 % Verifica um quadrado adjacente
+    \+ visitado(NX, NY),               % Garante que ainda não passamos por ele
+    certeza(NX, NY),                   % Garante que a lógica já processou a sala
+    ( memory(NX, NY, [])               % E a sala está vazia (sem perigos)
+      ; memory(NX, NY, [brilho])       % OU tem ouro
+      ; memory(NX, NY, [reflexo])      % OU tem energia
+    ),
+    vizinho_direcao(X, Y, NX, NY, DirDesejada), % Descobre para onde essa sala segura fica
+    (   DirAtual = DirDesejada         % Se já estou olhando para a sala...
+    ->  Acao = andar                   % ... a ação é andar pra frente!
+    ;   melhor_virada(DirAtual, DirDesejada, Acao) % Se não, consulta a tabela de giro
+    ),
+    !.                                 % Cut! Para de pensar e executa.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Prioridade 3: Solicitar Rota (A*) ao Python
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Se o agente travou, pede ao Python para calcular a rota até a fronteira segura mais próxima
+executa_acao(buscar_caminho) :- !.
