@@ -649,16 +649,6 @@ def main_loop(screen):
 #############################################################
 ## BLOCO PRINCIPAL:
 ############################################################
-# update_prolog()
-
-# pygame.init()
-# pygame.display.set_caption('INF1771 Trabalho 2 - Agente Lógico')
-# screen = pygame.display.set_mode((width, height+30))
-# load()
-
-# main_loop(screen)
-# pygame.quit()
-
 # Gera o mapa aleatoriamente e salva no arquivo correto ANTES de iniciar
 # gerar_mapa_aleatorio('mapas/mapa.pl')
 
