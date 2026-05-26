@@ -12,7 +12,10 @@
 :-dynamic ouro/1.
 :-dynamic blocked/2.
 
-:-consult('../mapas/mapa_medio.pl').
+:-dynamic venceu/0.
+:-dynamic saiu_inicio/0.
+
+:-consult('../mapas/mapa.pl').
 
 delete([], _, []).
 delete([Elem|Tail], Del, Result) :-
@@ -43,6 +46,8 @@ reset_game :-retractall(sentiu_impacto),
 			retractall(posicao(_,_,_)),
 			retractall(ouro(_)),
 			retractall(blocked(_,_)),
+            retractall(venceu),
+            retractall(saiu_inicio),
 			assert(energia(100)),
 			assert(pontuacao(0)),
 			assert(ouro(0)),
@@ -65,10 +70,15 @@ atualiza_energia(N):- energia(E), retract(energia(E)), NE is E + N,
 					  (NE >0,assert(energia(NE)),!)
 					 ).
 
+%atualiza estado do jogo: se saiu do inicio e se venceu
+atualiza_estado_jogo :-
+    ( \+posicao(1,1,_), \+saiu_inicio -> assert(saiu_inicio) ; true ),
+    ( posicao(1,1,_), saiu_inicio, ouro(Q), Q >= 3, \+venceu -> assert(venceu) ; true ).
+
 %verifica situacao da nova posicao e atualiza energia e pontos
 verifica_player :- posicao(X,Y,_), tile(X,Y,'P'), atualiza_energia(-100), atualiza_pontuacao(-1000),!.
-verifica_player :- posicao(X,Y,_), tile(X,Y,'D'), atualiza_energia(-50),!.
-verifica_player :- posicao(X,Y,_), tile(X,Y,'d'), atualiza_energia(-20),!.
+verifica_player :- posicao(X,Y,_), tile(X,Y,'D'), atualiza_energia(-50), atualiza_pontuacao(-50),!.
+verifica_player :- posicao(X,Y,_), tile(X,Y,'d'), atualiza_energia(-20), atualiza_pontuacao(-20),!.
 verifica_player :- posicao(X,Y,Z), tile(X,Y,'T'), 
 					map_size(SX,SY), random_between(1,SX,NX), random_between(1,SY,NY),
 				retract(posicao(X,Y,Z)), assert(posicao(NX,NY,Z)), atualiza_obs, verifica_player,!.
@@ -148,7 +158,7 @@ observacao_adj(passos,L) :- member('d',L).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %consulta e processa observações
-atualiza_obs:-adj_cand_obs(LP), observacoes(LO), iter_pos_list(LP,LO), observacao_certeza, observacao_vazia.
+atualiza_obs:-adj_cand_obs(LP), observacoes(LO), iter_pos_list(LP,LO), observacao_certeza, observacao_vazia, atualiza_estado_jogo.
 
 %adjacencias candidatas p/ a observacao (aquelas não visitadas)
 adj_cand_obs(L) :- findall((X,Y), (adjacente(X, Y), \+visitado(X,Y)), L).
@@ -571,8 +581,7 @@ trapped_bat_pit_dir(DirM) :-
     forall((possible_dir(Dir2,DX2,DY2), Dir2 \= DirM, NX is X+DX2, NY is Y+DY2, between(1,MAX_X,NX), between(1,MAX_Y,NY)),
       (pit_sus_cell(NX,NY) ; bat_sus_cell(NX,NY))).
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Gerenciamento de bloqueio A*
+:-dynamic blocked/2.
 add_blocked(X,Y) :- blocked(X,Y), !.
 add_blocked(X,Y) :- assertz(blocked(X,Y)).
 
