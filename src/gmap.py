@@ -411,6 +411,43 @@ def load():
     bw_img_health_size = (width/size_x, height/size_y)
     bw_img_health = pygame.transform.scale(bw_img_health, bw_img_health_size)  
     
+# def update(dt, screen):
+#     global elapsed_time, fila_acoes
+    
+#     elapsed_time += dt
+    
+#     if (elapsed_time / 1000) > auto_play_tempo:
+#         if auto_play and player_pos[2] != 'morto' and not venceu:
+            
+#             # 1. Se tem GPS traçado (na fila de ações), segue a rota um passo por vez
+#             if fila_acoes:
+#                 acao = fila_acoes.pop(0)
+#                 exec_prolog(acao)
+#                 update_prolog()
+#             else:
+#                 # 2. Se não tem rota, o cérebro Prolog decide a ação
+#                 acao = decisao()
+#                 acao_str = str(acao)
+                    
+#                 # 3. Prolog pediu para o GPS traçar caminho para (X,Y)
+#                 if "go_to" in acao_str:
+#                     coords = acao_str.replace("go_to(", "").replace(")", "").split(",")
+#                     tx = int(coords[0].strip())
+#                     ty = int(coords[1].strip())
+                    
+#                     if (player_pos[0], player_pos[1]) != (tx, ty):
+#                         go_to([tx, ty]) # Usa o novo A* tridimensional!
+#                     else:
+#                         exec_prolog("virar_direita")
+#                         update_prolog()
+                
+#                 # 4. Ação normal (andar, virar, pegar)
+#                 elif acao_str != "":
+#                     exec_prolog(acao)
+#                     update_prolog()
+       
+#         elapsed_time = 0
+
 def update(dt, screen):
     global elapsed_time, fila_acoes
     
@@ -419,31 +456,59 @@ def update(dt, screen):
     if (elapsed_time / 1000) > auto_play_tempo:
         if auto_play and player_pos[2] != 'morto' and not venceu:
             
-            # 1. Se tem GPS traçado (na fila de ações), segue a rota um passo por vez
+            # 1. Se tem GPS traçado, segue a rota um passo por vez
             if fila_acoes:
                 acao = fila_acoes.pop(0)
                 exec_prolog(acao)
                 update_prolog()
             else:
-                # 2. Se não tem rota, o cérebro Prolog decide a ação
-                acao = decisao()
-                acao_str = str(acao)
+                # 2. Laço de pensamento à velocidade da luz
+                while True:
+                    acao = decisao()
+                    acao_str = str(acao)
+                        
+                    # Se o Prolog pedir o GPS
+                    if "go_to" in acao_str:
+                        coords = acao_str.replace("go_to(", "").replace(")", "").split(",")
+                        tx = int(coords[0].strip())
+                        ty = int(coords[1].strip())
+                        
+                        if (player_pos[0], player_pos[1]) != (tx, ty):
+                            grid = grid_livre()
+                            sx, sy, sdir = player_pos
+                            start = (sx - 1, sy - 1, DIRS.index(sdir))
+                            goal = (tx - 1, ty - 1)
+                            g, prev, act = A_star(grid, start, goal)
+                            
+                            if g is not None:
+                                # A* ACHOU! Cura a Amnésia e extrai a rota
+                                list(prolog.query("clear_blocked"))
+                                for step in extrai_caminho(g, prev, act, goal):
+                                    fila_acoes.append(step)
+                                break # Sai do laço de pensamento para agir
+                            else:
+                                # A* FALHOU! Bloqueia no Prolog e repete o laço IMEDIATAMENTE!
+                                print(f"Alvo ({tx},{ty}) bloqueado pelo A*. Recalculando no mesmo frame...")
+                                list(prolog.query(f"add_blocked({tx},{ty})"))
+                                # Não usa 'break'. O while volta pro início no mesmo milissegundo.
+                        else:
+                            # Já está no destino, mas ainda pediu go_to
+                            fila_acoes.append("virar_direita")
+                            break
                     
-                # 3. Prolog pediu para o GPS traçar caminho para (X,Y)
-                if "go_to" in acao_str:
-                    coords = acao_str.replace("go_to(", "").replace(")", "").split(",")
-                    tx = int(coords[0].strip())
-                    ty = int(coords[1].strip())
+                    # Ação normal de um passo (andar, virar, pegar)
+                    elif acao_str != "":
+                        fila_acoes.append(acao_str)
+                        break
                     
-                    if (player_pos[0], player_pos[1]) != (tx, ty):
-                        go_to([tx, ty]) # Usa o novo A* tridimensional!
+                    # Sem ações possíveis (Game Over / Travou)
                     else:
-                        exec_prolog("virar_direita")
-                        update_prolog()
-                
-                # 4. Ação normal (andar, virar, pegar)
-                elif acao_str != "":
-                    exec_prolog(acao)
+                        break
+                        
+                # 3. Executa imediatamente a ação decidida neste turno
+                if fila_acoes:
+                    cmd = fila_acoes.pop(0)
+                    exec_prolog(cmd)
                     update_prolog()
        
         elapsed_time = 0

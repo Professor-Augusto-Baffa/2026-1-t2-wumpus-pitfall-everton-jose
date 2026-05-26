@@ -1,4 +1,5 @@
-
+:- discontiguous add_blocked/2.
+:- discontiguous clear_blocked/0.
 :-dynamic posicao/3.
 :-dynamic memory/3.
 :-dynamic visitado/2.
