@@ -5,8 +5,14 @@
 :-dynamic certeza/2.
 :-dynamic energia/1.
 :-dynamic pontuacao/1.
+:-dynamic sentiu_impacto/0.
 
-:-consult('../mapas/mapa.pl').
+:-dynamic energia/1.
+:-dynamic pontuacao/1.
+:-dynamic ouro/1.
+:-dynamic blocked/2.
+
+:-consult('../mapas/mapa_medio.pl').
 
 delete([], _, []).
 delete([Elem|Tail], Del, Result) :-
@@ -18,16 +24,29 @@ delete([Elem|Tail], Del, Result) :-
 	
 
 
-reset_game :- retractall(memory(_,_,_)), 
+% reset_game :- retractall(memory(_,_,_)), 
+% 			retractall(visitado(_,_)), 
+% 			retractall(certeza(_,_)),
+% 			retractall(energia(_)),
+% 			retractall(pontuacao(_)),
+% 			retractall(posicao(_,_,_)),
+% 			assert(energia(100)),
+% 			assert(pontuacao(0)),
+% 			assert(posicao(1,1, norte)).
+
+reset_game :-retractall(sentiu_impacto), 
+			retractall(memory(_,_,_)), 
 			retractall(visitado(_,_)), 
 			retractall(certeza(_,_)),
 			retractall(energia(_)),
 			retractall(pontuacao(_)),
 			retractall(posicao(_,_,_)),
+			retractall(ouro(_)),
+			retractall(blocked(_,_)),
 			assert(energia(100)),
 			assert(pontuacao(0)),
+			assert(ouro(0)),
 			assert(posicao(1,1, norte)).
-
 
 :-reset_game.
 
@@ -41,15 +60,15 @@ atualiza_pontuacao(X):- pontuacao(P), retract(pontuacao(P)), NP is P + X, assert
 %atualiza energia
 atualiza_energia(N):- energia(E), retract(energia(E)), NE is E + N, 
 					(
-					 (NE =<0, assert(energia(0)),posicao(X,Y,_),retract(posicao(_,_,_)), assert(posicao(X,Y,morto)),!);
+					 (NE =<0, assert(energia(0)),posicao(X,Y,_),retract(posicao(_,_,_)), assert(posicao(X,Y,morto)), atualiza_pontuacao(-1000), !);
 					 (NE >100, assert(energia(100)),!);
 					  (NE >0,assert(energia(NE)),!)
 					 ).
 
 %verifica situacao da nova posicao e atualiza energia e pontos
 verifica_player :- posicao(X,Y,_), tile(X,Y,'P'), atualiza_energia(-100), atualiza_pontuacao(-1000),!.
-verifica_player :- posicao(X,Y,_), tile(X,Y,'D'), random_between(-80,-50,D), atualiza_energia(D),!.
-verifica_player :- posicao(X,Y,_), tile(X,Y,'d'), random_between(-50,-25,D), atualiza_energia(D),!.
+verifica_player :- posicao(X,Y,_), tile(X,Y,'D'), atualiza_energia(-50),!.
+verifica_player :- posicao(X,Y,_), tile(X,Y,'d'), atualiza_energia(-20),!.
 verifica_player :- posicao(X,Y,Z), tile(X,Y,'T'), 
 					map_size(SX,SY), random_between(1,SX,NX), random_between(1,SY,NY),
 				retract(posicao(X,Y,Z)), assert(posicao(NX,NY,Z)), atualiza_obs, verifica_player,!.
@@ -76,30 +95,30 @@ andar :- posicao(X,Y,P), P = norte, map_size(_,MAX_Y), Y < MAX_Y, YY is Y + 1,
          retract(posicao(X,Y,_)), assert(posicao(X, YY, P)), 
 		 %((retract(certeza(X,YY)), assert(certeza(X,YY))); assert(certeza(X,YY))),
 		 set_real(X,YY),
-		 ((retract(visitado(X,Y)), assert(visitado(X,Y))); assert(visitado(X,Y))),atualiza_pontuacao(-1),!.
+		 ((retract(visitado(X,Y)), assert(visitado(X,Y))); assert(visitado(X,Y))),retractall(sentiu_impacto),atualiza_pontuacao(-1),!.
 		 
 andar :- posicao(X,Y,P), P = sul,  Y > 1, YY is Y - 1, 
          retract(posicao(X,Y,_)), assert(posicao(X, YY, P)), 
 		 %((retract(certeza(X,YY)), assert(certeza(X,YY))); assert(certeza(X,YY))),
 		 set_real(X,YY),
-		 ((retract(visitado(X,Y)), assert(visitado(X,Y))); assert(visitado(X,Y))),atualiza_pontuacao(-1),!.
+		 ((retract(visitado(X,Y)), assert(visitado(X,Y))); assert(visitado(X,Y))),retractall(sentiu_impacto),atualiza_pontuacao(-1),!.
 
 andar :- posicao(X,Y,P), P = leste, map_size(MAX_X,_), X < MAX_X, XX is X + 1, 
          retract(posicao(X,Y,_)), assert(posicao(XX, Y, P)), 
 		 %((retract(certeza(XX,Y)), assert(certeza(XX,Y))); assert(certeza(XX,Y))),
 		 set_real(XX,Y),
-		 ((retract(visitado(X,Y)), assert(visitado(X,Y))); assert(visitado(X,Y))),atualiza_pontuacao(-1),!.
+		 ((retract(visitado(X,Y)), assert(visitado(X,Y))); assert(visitado(X,Y))),retractall(sentiu_impacto),atualiza_pontuacao(-1),!.
 
 andar :- posicao(X,Y,P), P = oeste,  X > 1, XX is X - 1, 
          retract(posicao(X,Y,_)), assert(posicao(XX, Y, P)), 
 		 %((retract(certeza(XX,Y)), assert(certeza(XX,Y))); assert(certeza(XX,Y))),
 		 set_real(XX,Y),
-		 ((retract(visitado(X,Y)), assert(visitado(X,Y))); assert(visitado(X,Y))),atualiza_pontuacao(-1),!.
+		 ((retract(visitado(X,Y)), assert(visitado(X,Y))); assert(visitado(X,Y))),retractall(sentiu_impacto),atualiza_pontuacao(-1),!.
 		 
 %pegar	
-pegar :- posicao(X,Y,_), tile(X,Y,'O'), retract(tile(X,Y,'O')), assert(tile(X,Y,'')), atualiza_pontuacao(-5), atualiza_pontuacao(500),set_real(X,Y),!. 
-pegar :- posicao(X,Y,_), tile(X,Y,'U'), retract(tile(X,Y,'U')), assert(tile(X,Y,'')), atualiza_pontuacao(-5), atualiza_energia(50),set_real(X,Y),!. 
-pegar :- atualiza_pontuacao(-5),!.
+pegar :- posicao(X,Y,_), tile(X,Y,'O'), retract(tile(X,Y,'O')), assert(tile(X,Y,'')), atualiza_pontuacao(-1), atualiza_pontuacao(1000), ouro(Q), NQ is Q + 1, retract(ouro(Q)), assert(ouro(NQ)), set_real(X,Y),!.
+pegar :- posicao(X,Y,_), tile(X,Y,'U'), retract(tile(X,Y,'U')), assert(tile(X,Y,'')), atualiza_pontuacao(-1), atualiza_energia(20),set_real(X,Y),!.
+pegar :- atualiza_pontuacao(-1),!.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Funcoes Auxiliares de navegação e observação
@@ -251,75 +270,310 @@ show_mem(_,0) :- energia(E), pontuacao(P), write('E: '), write(E), write('   P: 
 %executa_acao(pegar) :- posicao(PX, PY,_), tem_ouro(PX, PY), !.
 %executa_acao(voltar) :- peguei_todos_ouros,!.
 
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Motor de Decisão do Agente
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% Prioridade 1: Reflexos Condicionados (Pegar Ouro ou Energia)
-executa_acao(pegar) :- 
-    posicao(X, Y, _),          % Descobre onde o agente está
-    memory(X, Y, Obs),         % Puxa o que ele está sentindo nessa posição
-    member(brilho, Obs),       % Verifica se "brilho" está na lista de observações
-    !.                         % O "Cut" (!) impede que o Prolog procure outras regras
-
-executa_acao(pegar) :- 
-    posicao(X, Y, _), 
-    memory(X, Y, Obs), 
-    member(reflexo, Obs), 
-    !.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Regras Auxiliares de Movimento e Direção
+%% ORDEM DE EXECUÇÃO DE AÇÕES (Cérebro do Agente)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% Define para qual direção cardeal fica o vizinho em relação a posição X, Y atual
-vizinho_direcao(X, Y, NX, Y, leste) :- NX is X + 1.
-vizinho_direcao(X, Y, NX, Y, oeste) :- NX is X - 1.
-vizinho_direcao(X, Y, X, NY, norte) :- NY is Y + 1.
-vizinho_direcao(X, Y, X, NY, sul) :- NY is Y - 1.
+% 1- Se pegou os 3 ouros, foge para o início (A*) para ganhar o jogo.
+executa_acao(X) :- ouro(Qtd), Qtd >= 3, X = go_to(1,1).
 
-% Tabela de decisões de giro: Como virar da DirAtual para a DirDesejada da forma mais rápida
-melhor_virada(norte, leste, virar_direita).
-melhor_virada(norte, oeste, virar_esquerda).
-melhor_virada(norte, sul, virar_direita). % Meia-volta (precisará de 2 turnos, começa virando para a direita)
+% 2- Se está pisando no ouro, pega.
+executa_acao(X) :- posicao(X0,Y0,_), memory(X0,Y0,[brilho]), !, X = pegar.
 
-melhor_virada(sul, leste, virar_esquerda).
-melhor_virada(sul, oeste, virar_direita).
-melhor_virada(sul, norte, virar_direita).
+% 3- Se está no power-up e precisa, pega.
+executa_acao(X) :- posicao(X0,Y0,_), memory(X0,Y0,[reflexo]), energia(E), E =< 50, !, X = pegar.
 
-melhor_virada(leste, sul, virar_direita).
-melhor_virada(leste, norte, virar_esquerda).
-melhor_virada(leste, oeste, virar_direita).
+% 4- Continua andando para frente se for 100% seguro.
+executa_acao(andar) :- posicao(X,Y,Dir), proximo(X,Y,Dir,NX,NY), memory(NX,NY,Percepts), Percepts = [], \+ visitado(NX,NY), !.
 
-melhor_virada(oeste, sul, virar_esquerda).
-melhor_virada(oeste, norte, virar_direita).
-melhor_virada(oeste, leste, virar_direita).
+% 5- Se não dá para ir para frente, mas tem um lado seguro, vira para lá.
+executa_acao(X) :- posicao(XN,YN,DirAtual), valid_direction(XN,YN,DirAlvo), turn_action(DirAtual, DirAlvo, X), !.
+
+% 6- Beco sem saída seguro: chama o A* para voltar para a fronteira segura mais próxima.
+executa_acao(X) :- posicao(CX, CY, _), nearest_open(TX, TY, _), not_blocked(TX,TY), (CX \= TX ; CY \= TY), X = go_to(TX, TY), !.
+
+% 7- Acabou a segurança. Avalia o Risco: Se a energia aguenta um monstro, avança na fronteira de um monstro suspeito.
+executa_acao(X) :- max_monster_damage(MaxD), energia(E), E > MaxD, nearest_monster_frontier(TX,TY,DirM,_), not_blocked(TX,TY), posicao(CX,CY,DirNow),
+    ( (CX \= TX ; CY \= TY) ->  X = go_to(TX,TY) ; (DirNow \= DirM -> turn_action(DirNow,DirM,X) ;  X = andar) ), !.
+
+% 8- Vida baixa e monstros à vista: busca poção para sobreviver.
+executa_acao(X) :- max_monster_damage(MaxD), energia(E), E =< MaxD, known_monster, nearest_potion(TX,TY,_), not_blocked(TX,TY), X = go_to(TX,TY), !.
+
+% 9- Sem poção e sem segurança: arrisca o teletransporte do morcego.
+executa_acao(X) :- nearest_bat_frontier(TX,TY,DirB,_), not_blocked(TX,TY), posicao(CX,CY,DirNow),
+    ( (CX \= TX ; CY \= TY) ->  X = go_to(TX,TY) ; (DirNow \= DirB -> turn_action(DirNow,DirB,X) ;  X = andar) ), !.
+
+% 10- Encurralado por monstros: enfrenta um garantido.
+executa_acao(X) :- trapped_monster_dir(_), X = andar, !.
+
+% 11- Encurralado por poços/morcegos: bate no monstro.
+executa_acao(X) :- trapped_bat_pit_dir(DirM), max_monster_damage(MaxD), energia(E), E  > MaxD, posicao(_,_,DirNow),
+    ( DirNow \= DirM -> turn_action(DirNow,DirM,X) ;  X = andar ), !.
+
+% 12- Desespero total: avança cego para o poço.
+executa_acao(X) :- nearest_pit_frontier(TX,TY,DirP,_), not_blocked(TX,TY), posicao(CX,CY,DirNow),
+    ( (CX \= TX ; CY \= TY) ->  X = go_to(TX,TY) ; (DirNow \= DirP -> turn_action(DirNow,DirP,X) ;  X = andar) ).
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Prioridade 2: Exploração de Vizinhança Segura
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% %% Motor de Decisão do Agente
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-executa_acao(Acao) :-
-    posicao(X, Y, DirAtual),           % Pega a posição e direção atual do agente
-    adjacente(NX, NY),                 % Verifica um quadrado adjacente
-    \+ visitado(NX, NY),               % Garante que ainda não passamos por ele
-    certeza(NX, NY),                   % Garante que a lógica já processou a sala
-    ( memory(NX, NY, [])               % E a sala está vazia (sem perigos)
-      ; memory(NX, NY, [brilho])       % OU tem ouro
-      ; memory(NX, NY, [reflexo])      % OU tem energia
-    ),
-    vizinho_direcao(X, Y, NX, NY, DirDesejada), % Descobre para onde essa sala segura fica
-    (   DirAtual = DirDesejada         % Se já estou olhando para a sala...
-    ->  Acao = andar                   % ... a ação é andar pra frente!
-    ;   melhor_virada(DirAtual, DirDesejada, Acao) % Se não, consulta a tabela de giro
-    ),
-    !.                                 % Cut! Para de pensar e executa.
+% % Prioridade 1: Reflexos Condicionados (Pegar Ouro ou Energia)
+% executa_acao(pegar) :- 
+%     posicao(X, Y, _),          % Descobre onde o agente está
+%     memory(X, Y, Obs),         % Puxa o que ele está sentindo nessa posição
+%     member(brilho, Obs),       % Verifica se "brilho" está na lista de observações
+%     !.                         % O "Cut" (!) impede que o Prolog procure outras regras
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Prioridade 3: Solicitar Rota (A*) ao Python
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% executa_acao(pegar) :- 
+%     posicao(X, Y, _), 
+%     memory(X, Y, Obs), 
+%     member(reflexo, Obs), 
+%     !.
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% %% Regras Auxiliares de Movimento e Direção
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% % Define para qual direção cardeal fica o vizinho em relação a posição X, Y atual
+% vizinho_direcao(X, Y, NX, Y, leste) :- NX is X + 1.
+% vizinho_direcao(X, Y, NX, Y, oeste) :- NX is X - 1.
+% vizinho_direcao(X, Y, X, NY, norte) :- NY is Y + 1.
+% vizinho_direcao(X, Y, X, NY, sul) :- NY is Y - 1.
+
+% % Tabela de decisões de giro: Como virar da DirAtual para a DirDesejada da forma mais rápida
+% melhor_virada(norte, leste, virar_direita).
+% melhor_virada(norte, oeste, virar_esquerda).
+% melhor_virada(norte, sul, virar_direita). % Meia-volta (precisará de 2 turnos, começa virando para a direita)
+
+% melhor_virada(sul, leste, virar_esquerda).
+% melhor_virada(sul, oeste, virar_direita).
+% melhor_virada(sul, norte, virar_direita).
+
+% melhor_virada(leste, sul, virar_direita).
+% melhor_virada(leste, norte, virar_esquerda).
+% melhor_virada(leste, oeste, virar_direita).
+
+% melhor_virada(oeste, sul, virar_esquerda).
+% melhor_virada(oeste, norte, virar_direita).
+% melhor_virada(oeste, leste, virar_direita).
+
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% %% Prioridade 2: Exploração de Vizinhança Segura
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% executa_acao(Acao) :-
+%     posicao(X, Y, DirAtual),           % Pega a posição e direção atual do agente
+%     adjacente(NX, NY),                 % Verifica um quadrado adjacente
+%     \+ visitado(NX, NY),               % Garante que ainda não passamos por ele
+%     certeza(NX, NY),                   % Garante que a lógica já processou a sala
+%     ( memory(NX, NY, [])               % E a sala está vazia (sem perigos)
+%       ; memory(NX, NY, [brilho])       % OU tem ouro
+%       ; memory(NX, NY, [reflexo])      % OU tem energia
+%     ),
+%     vizinho_direcao(X, Y, NX, NY, DirDesejada), % Descobre para onde essa sala segura fica
+%     (   DirAtual = DirDesejada         % Se já estou olhando para a sala...
+%     ->  Acao = andar                   % ... a ação é andar pra frente!
+%     ;   melhor_virada(DirAtual, DirDesejada, Acao) % Se não, consulta a tabela de giro
+%     ),
+%     !.                                 % Cut! Para de pensar e executa.
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% %% Prioridade 3: Solicitar Rota (A*) ao Python
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Se o agente travou, pede ao Python para calcular a rota até a fronteira segura mais próxima
 executa_acao(buscar_caminho) :- !.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% INTELIGÊNCIA: Seguranças, Certezas e Suspeitas
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% O ponto de partida é sempre seguro por regra.
+seguro(1,1).
+
+% Uma casa é 100% segura SE o agente tem certeza sobre ela E a memória de perigos está vazia.
+seguro(X,Y) :-
+    certeza(X,Y),
+    memory(X,Y, []).
+
+% Monstro CONFIRMADO: O agente tem 'certeza' e a memória da casa tem 'passos'.
+monster_cert_cell(X,Y) :-
+    certeza(X,Y),
+    memory(X,Y,L),
+    member(passos,L).
+
+% Monstro SUSPEITO: Tem 'passos' na memória, MAS não há certeza absoluta. 
+% (Ele também verifica se não tem brisa ou palmas junto para não confundir os perigos).
+monster_sus_cell(X,Y) :-
+    memory(X,Y,L),
+    member(passos, L),
+    \+ member(palmas, L),
+    \+ member(brisa, L),
+    \+ certeza(X,Y).
+
+% Morcego SUSPEITO (Flash / Palmas)
+bat_sus_cell(X,Y) :-
+    memory(X,Y,L),
+    member(palmas, L),
+    \+ member(brisa, L),
+    \+ certeza(X,Y).
+
+% Poço SUSPEITO (Brisa) - O poço é o pior cenário, se tem brisa e não há certeza, é suspeito.
+pit_sus_cell(X,Y) :-
+    memory(X,Y,L),
+    member(brisa, L),
+    \+ certeza(X,Y).
+    
+% Regra rápida para saber se existe ALGUM monstro suspeito no mapa
+known_monster :-
+    monster_sus_cell(_,_).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% INTELIGÊNCIA: Matemática de Direções
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Mapeia cada direção em um delta (DX,DY) no plano cartesiano.
+possible_dir(norte, 0,  1).
+possible_dir(leste,  1,  0).
+possible_dir(sul,    0, -1).
+possible_dir(oeste, -1,  0).
+
+% Atribui um índice matemático para cada direção (usaremos para calcular giros depois)
+dir_index(norte, 0).
+dir_index(leste, 1).
+dir_index(sul,   2).
+dir_index(oeste, 3).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% INTELIGÊNCIA: Fronteiras Táticas
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Fronteira de Monstro: Uma casa segura e visitada que tem um monstro suspeito como vizinho.
+monster_frontier(VX,VY,Dir) :-  
+    ( visitado(VX,VY) ; posicao(VX,VY,_) ),
+    seguro(VX,VY),                     
+    possible_dir(Dir,DX,DY),             
+    MX is VX+DX,  MY is VY+DY,           
+    monster_sus_cell(MX,MY).           
+
+% Fronteira de Morcego: Uma casa segura e visitada encostada num morcego suspeito.
+bat_frontier(VX,VY,Dir) :-
+    ( visitado(VX,VY) ; posicao(VX,VY,_) ),
+    seguro(VX,VY),
+    possible_dir(Dir,DX,DY),            
+    MX is VX+DX, MY is VY+DY,           
+    bat_sus_cell(MX,MY).                
+
+% Fronteira de Poço: Uma casa segura e visitada encostada num poço suspeito.
+pit_frontier(VX,VY,Dir) :-
+    ( visitado(VX,VY) ; posicao(VX,VY,_) ), 
+    seguro(VX,VY),                      
+    possible_dir(Dir,DX,DY),            
+    MX is VX+DX, MY is VY+DY,           
+    pit_sus_cell(MX,MY).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% INTELIGÊNCIA: Navegação e Distâncias
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Garante que nenhum alvo de navegação seja considerado impossível a priori
+% not_blocked(_, _).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Gerenciamento de bloqueio A*
+add_blocked(X,Y) :- blocked(X,Y), !.
+add_blocked(X,Y) :- assertz(blocked(X,Y)).
+
+clear_blocked :- retractall(blocked(_,_)).
+
+not_blocked(X,Y) :- \+ blocked(X,Y).
+
+% Dano máximo para cálculo de sobrevivência
+max_monster_damage(50).
+
+% Quem é o bloco à frente do agente?
+proximo(X,Y,norte,  X, Y1) :- Y1 is Y+1.
+proximo(X,Y,sul,    X, Y1) :- Y1 is Y-1.
+proximo(X,Y,leste,  X1, Y) :- X1 is X+1.
+proximo(X,Y,oeste,  X1, Y) :- X1 is X-1.
+
+% Informa para qual lado o agente deve virar
+turn_action(DirAtual, DirAlvo, virar_direita) :-
+    dir_index(DirAtual, I1), dir_index(DirAlvo,  I2),
+    D is (I2 - I1 + 4) mod 4, D =:= 1, !.
+turn_action(DirAtual, DirAlvo, virar_esquerda) :-
+    dir_index(DirAtual, I1), dir_index(DirAlvo,  I2),
+    D is (I2 - I1 + 4) mod 4, D =:= 3, !.
+turn_action(_, _, virar_direita). % Retorno (180 graus), vira duas vezes
+
+% Retorna uma direção válida (não visitada e sem perigo) ao redor do bloco
+valid_direction(X,Y,Dir) :-
+    possible_dir(Dir,DX,DY), NX is X + DX, NY is Y + DY,
+    map_size(MAX_X,MAX_Y), between(1,MAX_X,NX), between(1,MAX_Y,NY),
+    memory(NX,NY,Percepts), Percepts = [], \+ visitado(NX,NY), !.
+
+% Verifica se o bloco tem pelo menos um vizinho não visitado e sem avisos
+has_safe_frontier(X,Y) :-
+    member((DX,DY), [(1,0),(-1,0),(0,1),(0,-1)]),
+	NX is X + DX, NY is Y + DY,
+    map_size(MAX_X,MAX_Y), between(1,MAX_X,NX), between(1,MAX_Y,NY),
+    \+ visitado(NX,NY), memory(NX,NY,Percepts), Percepts = [], !.
+
+% Acha o bloco seguro e visitado mais próximo que tenha caminhos abertos
+nearest_open(TX,TY,D) :-
+    posicao(X0,Y0,_),
+    findall(Dist-(VX,VY), 
+      ( visitado(VX,VY), Dist is abs(VX-X0) + abs(VY-Y0), has_safe_frontier(VX,VY) ),
+      Pairs), Pairs \= [], keysort(Pairs, [D-(TX,TY)|_]).
+
+% Acha a poção conhecida mais próxima
+nearest_potion(TX,TY,D) :-
+    posicao(X0,Y0,_),
+    findall(Dist-(PX,PY),
+      ( memory(PX,PY,[reflexo]), Dist is abs(PX-X0) + abs(PY-Y0) ),
+      Pairs), Pairs \= [], keysort(Pairs,[D-(TX,TY)|_]).
+
+% Acha a fronteira de monstro mais próxima
+nearest_monster_frontier(TX,TY,Dir,D) :-
+    posicao(X0,Y0,_),
+    findall( Dist-(VX,VY,Dir1),
+             ( monster_frontier(VX,VY,Dir1), Dist is abs(VX-X0)+abs(VY-Y0) ),
+             Pairs), Pairs \= [], keysort(Pairs,[D-(TX,TY,Dir)|_]).
+
+% Acha a fronteira de morcego mais próxima
+nearest_bat_frontier(TX,TY,Dir,D) :-                     
+    posicao(X0,Y0,_),
+    findall( Dist-(VX,VY,Dir1),
+             ( bat_frontier(VX,VY,Dir1), Dist is abs(VX-X0)+abs(VY-Y0) ),
+             Pairs), Pairs \= [], keysort(Pairs,[D-(TX,TY,Dir)|_]).
+
+% Acha a fronteira de poço mais próxima
+nearest_pit_frontier(TX,TY,Dir,D) :-                     
+    posicao(X0,Y0,_),
+    findall( Dist-(VX,VY,Dir1),
+             ( pit_frontier(VX,VY,Dir1), Dist is abs(VX-X0)+abs(VY-Y0) ),
+             Pairs), Pairs \= [], keysort(Pairs,[D-(TX,TY,Dir)|_]).
+
+% Identifica se está encurralado por monstros suspeitos e um certo
+trapped_monster_dir(DirM) :-
+    posicao(X,Y,_), possible_dir(DirM,DXM,DYM), MX is X+DXM, MY is Y+DYM, monster_cert_cell(MX,MY),
+    map_size(MAX_X,MAX_Y),
+    forall((possible_dir(Dir2,DX2,DY2), Dir2 \= DirM, NX is X+DX2, NY is Y+DY2, between(1,MAX_X,NX), between(1,MAX_Y,NY)),
+      (monster_sus_cell(NX,NY))).
+
+% Identifica se está encurralado por poços/morcegos e um monstro certo
+trapped_bat_pit_dir(DirM) :-
+    posicao(X,Y,_), possible_dir(DirM,DXM,DYM), MX is X+DXM, MY is Y+DYM, monster_cert_cell(MX,MY),
+    map_size(MAX_X,MAX_Y),
+    forall((possible_dir(Dir2,DX2,DY2), Dir2 \= DirM, NX is X+DX2, NY is Y+DY2, between(1,MAX_X,NX), between(1,MAX_Y,NY)),
+      (pit_sus_cell(NX,NY) ; bat_sus_cell(NX,NY))).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Gerenciamento de bloqueio A*
+add_blocked(X,Y) :- blocked(X,Y), !.
+add_blocked(X,Y) :- assertz(blocked(X,Y)).
+
+clear_blocked :- retractall(blocked(_,_)).

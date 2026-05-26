@@ -1,7 +1,10 @@
 ################################################
+# from TreeNode import TreeNode
 import pygame
 import sys, time, random
 from pyswip import Prolog, Functor, Variable, Query
+from queue import PriorityQueue
+import pathlib
 
 import pathlib
 current_path = str(pathlib.Path().resolve())
@@ -20,6 +23,11 @@ height = size_y * scale #Altura Janela
 player_pos = (1,1,'norte')
 energia = 0
 pontuacao = 0
+fila_acoes = []
+DIRS = ["norte", "leste", "sul", "oeste"]  # Índices 0 a 3
+DELTA = [(0, 1), (1, 0), (0, -1), (-1, 0)] # Vetores de movimento
+LEFT = lambda d: (d + 3) % 4
+RIGHT = lambda d: (d + 1) % 4
 
 
 mapa=[['','','','','','','','','','','',''],
@@ -54,6 +62,180 @@ def decisao():
 
     return acao
 
+
+# def get_fronteira_segura():
+#     alvos = []
+#     # Busca todas as casas que o Prolog já mapeou e tem certeza
+#     for x, y in certezas:
+#         if (x, y) not in visitados:
+#             conteudo = mapa[12-y][x-1] # Ajuste de coordenada visual do Python
+#             # Só aceita a casa como destino se não tiver perigo nela
+#             if 'P' not in conteudo and 'D' not in conteudo and 'd' not in conteudo and 'T' not in conteudo:
+#                 alvos.append((x, y))
+#     return alvos
+
+# def heuristica(a, b):
+#     # Calcula a distância em linha reta (Manhattan)
+#     return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+# def buscar_caminho_astar(inicio, destino):
+#     open_list = [TreeNode(inicio, heuristica(inicio, destino), 0)]
+#     closed_list = set()
+    
+#     while open_list:
+#         open_list.sort(key=lambda n: n.get_priority())
+#         atual = open_list.pop(0)
+        
+#         if atual.get_coord() == destino:
+#             caminho = []
+#             while atual:
+#                 caminho.append(atual.get_coord())
+#                 atual = atual.get_parent()
+#             return caminho[::-1] # Inverte para ficar da origem ao destino
+        
+#         closed_list.add(atual.get_coord())
+#         cx, cy = atual.get_coord()
+        
+#         vizinhos = [(cx, cy+1), (cx, cy-1), (cx+1, cy), (cx-1, cy)]
+#         for vx, vy in vizinhos:
+#             if 1 <= vx <= 12 and 1 <= vy <= 12:
+#                 if (vx, vy) in closed_list: continue
+                
+#                 # REGRA DE OURO: Para não morrer, o GPS só traça rotas por casas que o agente já VISITOU!
+#                 if (vx, vy) not in visitados and (vx, vy) != destino:
+#                     continue
+                    
+#                 gx = atual.get_value_gx() + 1
+#                 hx = heuristica((vx, vy), destino)
+#                 novo_no = TreeNode((vx, vy), gx + hx, gx)
+#                 novo_no.set_parent(atual)
+#                 open_list.append(novo_no)
+#     return []
+
+# def converter_rota_em_acoes(rota, dir_atual):
+#     acoes = []
+#     direcao = dir_atual
+    
+#     for i in range(len(rota) - 1):
+#         atual = rota[i]
+#         prox = rota[i+1]
+#         dx = prox[0] - atual[0]
+#         dy = prox[1] - atual[1]
+        
+#         if dx == 1: dir_desejada = 'leste'
+#         elif dx == -1: dir_desejada = 'oeste'
+#         elif dy == 1: dir_desejada = 'norte'
+#         elif dy == -1: dir_desejada = 'sul'
+        
+#         if direcao != dir_desejada:
+#             if direcao == 'norte':
+#                 if dir_desejada == 'leste': acoes.append('virar_direita')
+#                 elif dir_desejada == 'oeste': acoes.append('virar_esquerda')
+#                 elif dir_desejada == 'sul': acoes.extend(['virar_direita', 'virar_direita'])
+#             elif direcao == 'sul':
+#                 if dir_desejada == 'leste': acoes.append('virar_esquerda')
+#                 elif dir_desejada == 'oeste': acoes.append('virar_direita')
+#                 elif dir_desejada == 'norte': acoes.extend(['virar_direita', 'virar_direita'])
+#             elif direcao == 'leste':
+#                 if dir_desejada == 'sul': acoes.append('virar_direita')
+#                 elif dir_desejada == 'norte': acoes.append('virar_esquerda')
+#                 elif dir_desejada == 'oeste': acoes.extend(['virar_direita', 'virar_direita'])
+#             elif direcao == 'oeste':
+#                 if dir_desejada == 'sul': acoes.append('virar_esquerda')
+#                 elif dir_desejada == 'norte': acoes.append('virar_direita')
+#                 elif dir_desejada == 'leste': acoes.extend(['virar_direita', 'virar_direita'])
+#             direcao = dir_desejada
+            
+#         acoes.append('andar')
+#     return acoes
+
+def get_map_perceived_detailed(input_map):
+    # Consulta o Prolog para saber quais casas ele tem 100% de CERTEZA que são seguras
+    x, y = Variable(), Variable()
+    seguro_fun = Functor("seguro", 2)
+    query_s = Query(seguro_fun(x, y))
+    while query_s.nextSolution():
+        row = y.value - 1
+        col = x.value - 1
+        input_map[row][col] = "."
+    query_s.closeQuery()
+    return input_map
+
+def grid_livre():
+    # Cria uma cópia virtual do mapa só com as casas seguras deduzidas pelo Prolog
+    g = [row[:] for row in mapa]
+    g = get_map_perceived_detailed(g)
+    for y in range(len(g)):
+        for x in range(len(g[0])):
+            if g[y][x] in ("O", "U"):
+                g[y][x] = "."
+    return g
+
+def get_neighbours(grid, x, y, d):
+    # Retorna os movimentos possíveis e SEUS CUSTOS reais (Girar = 1, Andar = 1)
+    yield (x, y, LEFT(d)), 1, "virar_esquerda"
+    yield (x, y, RIGHT(d)), 1, "virar_direita"
+    dx, dy = DELTA[d]
+    nx, ny = x + dx, y + dy
+    if 0 <= nx < 12 and 0 <= ny < 12 and grid[ny][nx] == ".":
+        yield (nx, ny, d), 1, "andar"
+
+def A_star(grid, start, goal):
+    # O novo algoritmo A* que avalia (X, Y, Direção)
+    pq = PriorityQueue()
+    g = {start: 0}
+    prev, act = {start: None}, {start: None}
+    h0 = abs(start[0] - goal[0]) + abs(start[1] - goal[1])
+    pq.put((h0, start))
+
+    while not pq.empty():
+        _, cur = pq.get()
+        cx, cy, cd = cur
+        if (cx, cy) == goal:
+            return g, prev, act
+        for nxt, cost, op in get_neighbours(grid, cx, cy, cd):
+            new_g = g[cur] + cost
+            if new_g < g.get(nxt, 1e9):
+                g[nxt] = new_g
+                prev[nxt], act[nxt] = cur, op
+                h = abs(nxt[0] - goal[0]) + abs(nxt[1] - goal[1])  # Distância Manhattan
+                pq.put((new_g + h, nxt))
+    return None, None, None
+
+def extrai_caminho(g, prev, act, goal):
+    # Transforma o caminho numérico em palavras lógicas (andar, virar)
+    end = min(
+        ((goal[0], goal[1], d) for d in range(4) if (goal[0], goal[1], d) in g),
+        key=lambda st: g[st],
+    )
+    seq = []
+    node = end
+    while act[node]:
+        seq.append(act[node])
+        node = prev[node]
+    return list(reversed(seq))
+
+def go_to(target_xy):
+    # A função principal que tenta traçar a rota ou coloca na Lista Negra
+    global fila_acoes
+    grid = grid_livre()
+
+    sx, sy, sdir = player_pos
+    start = (sx - 1, sy - 1, DIRS.index(sdir))
+    goal = (target_xy[0] - 1, target_xy[1] - 1)
+
+    g, prev, act = A_star(grid, start, goal)
+
+    if g is not None:
+        # A* ACHOU UM CAMINHO! Avisa o Prolog para esquecer a Lista Negra e adiciona à fila de ações
+        list(prolog.query("clear_blocked"))
+        for step in extrai_caminho(g, prev, act, goal):
+            fila_acoes.append(step)
+        return
+
+    # A* FALHOU! Alvo inalcançável (preso por paredes ou escuridão) -> Bloqueia o alvo.
+    print("go_to: sem caminho, marcando alvo como bloqueado!")
+    list(prolog.query(f"add_blocked({target_xy[0]},{target_xy[1]})"))
 
 def exec_prolog(a):
     global last_action
@@ -296,21 +478,106 @@ def load():
     bw_img_health_size = (width/size_x, height/size_y)
     bw_img_health = pygame.transform.scale(bw_img_health, bw_img_health_size)  
 
-def update(dt, screen):
+# def update(dt, screen):
     
-    global elapsed_time
+#     global elapsed_time
+    
+#     elapsed_time += dt
+    
+#     if (elapsed_time / 1000) > auto_play_tempo:
+        
+#         if auto_play and player_pos[2] != 'morto':
+#             exec_prolog(decisao())
+#             update_prolog()
+       
+#         elapsed_time = 0
+
+
+# def update(dt, screen):
+#     global elapsed_time, fila_acoes
+    
+#     elapsed_time += dt
+    
+#     if (elapsed_time / 1000) > auto_play_tempo:
+#         if auto_play and player_pos[2] != 'morto':
+            
+#             # 1. Se tem GPS traçado, segue a rota até o fim
+#             if fila_acoes:
+#                 acao = fila_acoes.pop(0)
+#                 exec_prolog(acao)
+#                 update_prolog()
+#             else:
+#                 # 2. Se não tem GPS, pergunta ao Prolog o que fazer
+#                 acao = decisao()
+#                 acao_str = str(acao)
+                    
+#                 # 3. Se o Prolog pedir para o Python usar o GPS (A*):
+#                 if "go_to" in acao_str:
+#                     # Extrai as coordenadas X e Y da string, ex: "go_to(5, 5)"
+#                     coords = acao_str.replace("go_to(", "").replace(")", "").split(",")
+#                     tx = int(coords[0].strip())
+#                     ty = int(coords[1].strip())
+                    
+#                     inicio = (player_pos[0], player_pos[1])
+#                     destino = (tx, ty)
+                    
+#                     if inicio != destino:
+#                         rota = buscar_caminho_astar(inicio, destino)
+#                         if rota:
+#                             exec_prolog("clear_blocked")
+#                             fila_acoes = converter_rota_em_acoes(rota, player_pos[2])
+#                         else:
+#                             # A* FALHOU: Manda para a lista negra
+#                             exec_prolog(f"add_blocked({tx},{ty})")
+#                     else:
+#                         # Se já chegou no destino (ex: voltou pra 1,1 no fim do jogo)
+#                         exec_prolog("virar_direita")
+#                         update_prolog()
+                
+#                 # 4. SE FOR UMA AÇÃO NORMAL (andar, virar, pegar), EXECUTA DIRETO!
+#                 elif acao_str != "":
+#                     exec_prolog(acao)
+#                     update_prolog()
+       
+#         elapsed_time = 0
+    
+def update(dt, screen):
+    global elapsed_time, fila_acoes
     
     elapsed_time += dt
     
     if (elapsed_time / 1000) > auto_play_tempo:
-        
         if auto_play and player_pos[2] != 'morto':
-            exec_prolog(decisao())
-            update_prolog()
+            
+            # 1. Se tem GPS traçado (na fila de ações), segue a rota um passo por vez
+            if fila_acoes:
+                acao = fila_acoes.pop(0)
+                exec_prolog(acao)
+                update_prolog()
+            else:
+                # 2. Se não tem rota, o cérebro Prolog decide a ação
+                acao = decisao()
+                acao_str = str(acao)
+                    
+                # 3. Prolog pediu para o GPS traçar caminho para (X,Y)
+                if "go_to" in acao_str:
+                    coords = acao_str.replace("go_to(", "").replace(")", "").split(",")
+                    tx = int(coords[0].strip())
+                    ty = int(coords[1].strip())
+                    
+                    if (player_pos[0], player_pos[1]) != (tx, ty):
+                        go_to([tx, ty]) # Usa o novo A* tridimensional!
+                    else:
+                        exec_prolog("virar_direita")
+                        update_prolog()
+                
+                # 4. Ação normal (andar, virar, pegar)
+                elif acao_str != "":
+                    exec_prolog(acao)
+                    update_prolog()
        
         elapsed_time = 0
-        
-    
+
 
 def key_pressed(event):
     
@@ -443,19 +710,6 @@ def main_loop(screen):
 #############################################################
 ## BLOCO PRINCIPAL:
 ############################################################
-# update_prolog()
-
-# pygame.init()
-# pygame.display.set_caption('INF1771 Trabalho 2 - Agente Lógico')
-# screen = pygame.display.set_mode((width, height+30))
-# load()
-
-# main_loop(screen)
-# pygame.quit()
-
-# Gera o mapa aleatoriamente e salva no arquivo correto ANTES de iniciar
-gerar_mapa_aleatorio('mapas/mapa.pl')
-
 update_prolog()
 
 pygame.init()
@@ -465,4 +719,17 @@ load()
 
 main_loop(screen)
 pygame.quit()
+
+# Gera o mapa aleatoriamente e salva no arquivo correto ANTES de iniciar
+# gerar_mapa_aleatorio('mapas/mapa.pl')
+
+# update_prolog()
+
+# pygame.init()
+# pygame.display.set_caption('INF1771 Trabalho 2 - Agente Lógico')
+# screen = pygame.display.set_mode((width, height+30))
+# load()
+
+# main_loop(screen)
+# pygame.quit()
 
