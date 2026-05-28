@@ -1,13 +1,14 @@
 :- discontiguous add_blocked/2.
 :- discontiguous clear_blocked/0.
+
 :-dynamic posicao/3.
 :-dynamic memory/3.
 :-dynamic visitado/2.
 :-dynamic certeza/2.
 :-dynamic energia/1.
 :-dynamic pontuacao/1.
-:-dynamic sentiu_impacto/0.
 
+:-dynamic sentiu_impacto/0.
 :-dynamic energia/1.
 :-dynamic pontuacao/1.
 :-dynamic ouro/1.
@@ -16,7 +17,7 @@
 :-dynamic venceu/0.
 :-dynamic saiu_inicio/0.
 
-:-consult('../mapas/mapa.pl').
+:-consult('../mapas/mapa_facil.pl').
 
 delete([], _, []).
 delete([Elem|Tail], Del, Result) :-
@@ -25,18 +26,6 @@ delete([Elem|Tail], Del, Result) :-
     ;   Result = [Elem|Rest],
         delete(Tail, Del, Rest)
     ).
-	
-
-
-% reset_game :- retractall(memory(_,_,_)), 
-% 			retractall(visitado(_,_)), 
-% 			retractall(certeza(_,_)),
-% 			retractall(energia(_)),
-% 			retractall(pontuacao(_)),
-% 			retractall(posicao(_,_,_)),
-% 			assert(energia(100)),
-% 			assert(pontuacao(0)),
-% 			assert(posicao(1,1, norte)).
 
 reset_game :-retractall(sentiu_impacto), 
 			retractall(memory(_,_,_)), 
@@ -269,18 +258,6 @@ show_mem(X,Y) :- Y >= 1, map_size(X,_),YY is Y - 1, write(Y), nl, show_mem(1, YY
 show_mem(_,0) :- energia(E), pontuacao(P), write('E: '), write(E), write('   P: '), write(P),!.
 
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%apagar esta linha - apenas para demonstracao aleatoria
-%executa_acao(X) :- L=['virar_esquerda','virar_direita','andar','pegar'],random_between(1,4,I), nth1(I, L, X),!.
-
-%apagar linhas abaixo... sao exemplos de resposta
-%executa_acao(andar) :- posicao(PX, _, oeste), PX > 1, X = andar,!.
-%executa_acao(andar) :- posicao(PX, _, leste), PX < 3, X = andar,!.
-%executa_acao(pegar) :- posicao(PX, PY,_), tem_ouro(PX, PY), !.
-%executa_acao(voltar) :- peguei_todos_ouros,!.
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% ORDEM DE EXECUÇÃO DE AÇÕES (Cérebro do Agente)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -326,78 +303,6 @@ executa_acao(X) :- nearest_pit_frontier(TX,TY,DirP,_), not_blocked(TX,TY), posic
     ( (CX \= TX ; CY \= TY) ->  X = go_to(TX,TY) ; (DirNow \= DirP -> turn_action(DirNow,DirP,X) ;  X = andar) ).
 
 
-% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% %% Motor de Decisão do Agente
-% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% % Prioridade 1: Reflexos Condicionados (Pegar Ouro ou Energia)
-% executa_acao(pegar) :- 
-%     posicao(X, Y, _),          % Descobre onde o agente está
-%     memory(X, Y, Obs),         % Puxa o que ele está sentindo nessa posição
-%     member(brilho, Obs),       % Verifica se "brilho" está na lista de observações
-%     !.                         % O "Cut" (!) impede que o Prolog procure outras regras
-
-% executa_acao(pegar) :- 
-%     posicao(X, Y, _), 
-%     memory(X, Y, Obs), 
-%     member(reflexo, Obs), 
-%     !.
-
-% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% %% Regras Auxiliares de Movimento e Direção
-% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% % Define para qual direção cardeal fica o vizinho em relação a posição X, Y atual
-% vizinho_direcao(X, Y, NX, Y, leste) :- NX is X + 1.
-% vizinho_direcao(X, Y, NX, Y, oeste) :- NX is X - 1.
-% vizinho_direcao(X, Y, X, NY, norte) :- NY is Y + 1.
-% vizinho_direcao(X, Y, X, NY, sul) :- NY is Y - 1.
-
-% % Tabela de decisões de giro: Como virar da DirAtual para a DirDesejada da forma mais rápida
-% melhor_virada(norte, leste, virar_direita).
-% melhor_virada(norte, oeste, virar_esquerda).
-% melhor_virada(norte, sul, virar_direita). % Meia-volta (precisará de 2 turnos, começa virando para a direita)
-
-% melhor_virada(sul, leste, virar_esquerda).
-% melhor_virada(sul, oeste, virar_direita).
-% melhor_virada(sul, norte, virar_direita).
-
-% melhor_virada(leste, sul, virar_direita).
-% melhor_virada(leste, norte, virar_esquerda).
-% melhor_virada(leste, oeste, virar_direita).
-
-% melhor_virada(oeste, sul, virar_esquerda).
-% melhor_virada(oeste, norte, virar_direita).
-% melhor_virada(oeste, leste, virar_direita).
-
-
-% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% %% Prioridade 2: Exploração de Vizinhança Segura
-% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% executa_acao(Acao) :-
-%     posicao(X, Y, DirAtual),           % Pega a posição e direção atual do agente
-%     adjacente(NX, NY),                 % Verifica um quadrado adjacente
-%     \+ visitado(NX, NY),               % Garante que ainda não passamos por ele
-%     certeza(NX, NY),                   % Garante que a lógica já processou a sala
-%     ( memory(NX, NY, [])               % E a sala está vazia (sem perigos)
-%       ; memory(NX, NY, [brilho])       % OU tem ouro
-%       ; memory(NX, NY, [reflexo])      % OU tem energia
-%     ),
-%     vizinho_direcao(X, Y, NX, NY, DirDesejada), % Descobre para onde essa sala segura fica
-%     (   DirAtual = DirDesejada         % Se já estou olhando para a sala...
-%     ->  Acao = andar                   % ... a ação é andar pra frente!
-%     ;   melhor_virada(DirAtual, DirDesejada, Acao) % Se não, consulta a tabela de giro
-%     ),
-%     !.                                 % Cut! Para de pensar e executa.
-
-% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% %% Prioridade 3: Solicitar Rota (A*) ao Python
-% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% Se o agente travou, pede ao Python para calcular a rota até a fronteira segura mais próxima
-executa_acao(buscar_caminho) :- !.
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% INTELIGÊNCIA: Seguranças, Certezas e Suspeitas
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -442,12 +347,13 @@ pit_sus_cell(X,Y) :-
 known_monster :-
     monster_sus_cell(_,_).
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% INTELIGÊNCIA: Matemática de Direções
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Mapeia cada direção em um delta (DX,DY) no plano cartesiano.
-possible_dir(norte, 0,  1).
+possible_dir(norte,  0,  1).
 possible_dir(leste,  1,  0).
 possible_dir(sul,    0, -1).
 possible_dir(oeste, -1,  0).
@@ -457,6 +363,7 @@ dir_index(norte, 0).
 dir_index(leste, 1).
 dir_index(sul,   2).
 dir_index(oeste, 3).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% INTELIGÊNCIA: Fronteiras Táticas
@@ -486,6 +393,7 @@ pit_frontier(VX,VY,Dir) :-
     MX is VX+DX, MY is VY+DY,           
     pit_sus_cell(MX,MY).
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% INTELIGÊNCIA: Navegação e Distâncias
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -493,7 +401,6 @@ pit_frontier(VX,VY,Dir) :-
 % Garante que nenhum alvo de navegação seja considerado impossível a priori
 % not_blocked(_, _).
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Gerenciamento de bloqueio A*
 add_blocked(X,Y) :- blocked(X,Y), !.
 add_blocked(X,Y) :- assertz(blocked(X,Y)).

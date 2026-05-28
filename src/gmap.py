@@ -199,7 +199,6 @@ def gerar_mapa_aleatorio(caminho_arquivo):
     except Exception as e:
         print(f"Erro ao gerar o mapa: {e}")
 
-
 def update_prolog():
     global player_pos, mapa, energia, pontuacao,visitados, show_map, venceu
 
@@ -307,10 +306,7 @@ def update_prolog():
     pontuacao = x.value
     pontuacao_query.closeQuery()
 
-    #print(mapa)
-    #print(player_pos)
     venceu = len(list(prolog.query("venceu"))) > 0
-
 
 def load():
     global sys_font, clock, img_wall, img_grass, img_start, img_finish, img_path
@@ -410,43 +406,6 @@ def load():
     bw_img_health = pygame.image.load('assets/bw_health.png')
     bw_img_health_size = (width/size_x, height/size_y)
     bw_img_health = pygame.transform.scale(bw_img_health, bw_img_health_size)  
-    
-# def update(dt, screen):
-#     global elapsed_time, fila_acoes
-    
-#     elapsed_time += dt
-    
-#     if (elapsed_time / 1000) > auto_play_tempo:
-#         if auto_play and player_pos[2] != 'morto' and not venceu:
-            
-#             # 1. Se tem GPS traçado (na fila de ações), segue a rota um passo por vez
-#             if fila_acoes:
-#                 acao = fila_acoes.pop(0)
-#                 exec_prolog(acao)
-#                 update_prolog()
-#             else:
-#                 # 2. Se não tem rota, o cérebro Prolog decide a ação
-#                 acao = decisao()
-#                 acao_str = str(acao)
-                    
-#                 # 3. Prolog pediu para o GPS traçar caminho para (X,Y)
-#                 if "go_to" in acao_str:
-#                     coords = acao_str.replace("go_to(", "").replace(")", "").split(",")
-#                     tx = int(coords[0].strip())
-#                     ty = int(coords[1].strip())
-                    
-#                     if (player_pos[0], player_pos[1]) != (tx, ty):
-#                         go_to([tx, ty]) # Usa o novo A* tridimensional!
-#                     else:
-#                         exec_prolog("virar_direita")
-#                         update_prolog()
-                
-#                 # 4. Ação normal (andar, virar, pegar)
-#                 elif acao_str != "":
-#                     exec_prolog(acao)
-#                     update_prolog()
-       
-#         elapsed_time = 0
 
 def update(dt, screen):
     global elapsed_time, fila_acoes
@@ -513,7 +472,6 @@ def update(dt, screen):
        
         elapsed_time = 0
 
-
 def key_pressed(event):
     
     global show_map
@@ -540,7 +498,6 @@ def key_pressed(event):
         if event.key == pygame.K_m:
             show_map = not show_map
             update_prolog()
-
 
 def draw_screen(screen):
     
@@ -635,7 +592,6 @@ def main_loop(screen):
         # a última atualização 
         dt = clock.tick()
         
-        
         # Atualiza posição dos objetos da tela
         update(dt, screen)
         
@@ -649,6 +605,7 @@ def main_loop(screen):
 #############################################################
 ## BLOCO PRINCIPAL:
 ############################################################
+
 # Gera o mapa aleatoriamente e salva no arquivo correto ANTES de iniciar
 # gerar_mapa_aleatorio('mapas/mapa.pl')
 
