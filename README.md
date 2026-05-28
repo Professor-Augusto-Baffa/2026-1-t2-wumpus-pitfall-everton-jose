@@ -93,8 +93,14 @@ python src/gmap.py
 
 ## Configuracao de mapa
 
-1. Para alterar o mapa fixo consultado pelo Prolog:
-  edite `prolog/main.pl` na linha 19 (predicado `consult`).
+1. Para alterar o mapa fixo consultado pelo Prolog em `prolog/main.pl`:
+  edite o caminho na linha 19.
+```Prolog
+:-consult('../mapas/mapa.pl').
+```
 
-2. Para gerar mapa aleatorio pelo Python:
-  use `src/gmap.py` na linha 653 (chamada de geracao de mapa aleatorio).
+2. Para gerar mapa aleatorio pelo Python em `src/gmap.py`:
+  descomente a linha 653.
+  ```Python
+gerar_mapa_aleatorio('mapas/mapa.pl')
+```
